@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # changes-analyze
 
 Cross-app **Change Dossier** generator for the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Run it against a PR or a branch/ref comparison; it writes docs a whole team reads instead of reverse-engineering the UI in a meeting.
@@ -126,3 +127,6 @@ README.md             → this file
 ## Format source
 
 The conflict report format is built from git's own tooling — `git merge-tree --write-tree` output + git/Atlassian conflict-type vocabulary. No third-party skill dependency.
+=======
+# Changes-analyzer
+>>>>>>> 2e5d9e65625be854f9c6bfad3e3243c90e97dea6
