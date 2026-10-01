@@ -1,10 +1,5 @@
 <<<<<<< HEAD
 # changes-analyze
-
-Cross-app **Change Dossier** generator for the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Run it against a PR or a branch/ref comparison; it writes docs a whole team reads instead of reverse-engineering the UI in a meeting.
-
-Works in **Claude Code** (skill) and **Cursor** (slash command). Same logic, same output.
-
 ## What it produces
 
 Per run, into `docs/changes/<id>/` of the current repo:
@@ -49,18 +44,9 @@ mkdir -p "<repo>/.cursor/commands"
 cp changes-analyze.md "<repo>/.cursor/commands/changes-analyze.md"
 ```
 
-**B. The whole `ie workspace` as one window** — file must be at the workspace root, not inside `ie-agentic`:
-```bash
-mkdir -p "C:/ie workspace/.cursor/commands"
-cp "C:/ie workspace/ie-agentic/.cursor/commands/changes-analyze.md" "C:/ie workspace/.cursor/commands/changes-analyze.md"
-```
-Or, if using the ie-agentic kit, propagate everything up:
-```bash
-cd "C:/ie workspace/ie-agentic"
-npm run cursor:copy -- --yes     # copies .cursor into the parent (C:/ie workspace)
-```
 
-**C. Every Cursor project (global)**:
+
+**B. Every Cursor project (global)**:
 ```bash
 mkdir -p ~/.cursor/commands
 cp changes-analyze.md ~/.cursor/commands/changes-analyze.md
@@ -68,8 +54,6 @@ cp changes-analyze.md ~/.cursor/commands/changes-analyze.md
 
 Then: open the Cursor **Agent** chat, type `/` → pick `changes-analyze` (or type `/changes-analyze main compare with origin/main`).
 
-### Why the earlier install failed
-The file lived only in `ie-agentic/.cursor/commands/`. Cursor was opened on a different root (`C:/ie workspace` or a repo), whose `.cursor/commands/` had no `changes-analyze.md` — Cursor doesn't look inside `ie-agentic/`. Fix = put the file in the `.cursor/commands/` of the root you open (option A/B) or go global (C).
 
 ### Troubleshooting
 - Command not in the `/` list → wrong location (see above) or Cursor < 1.6.
@@ -103,18 +87,6 @@ Uses `git merge-tree --write-tree <target> <source>` (Git 2.38+) to **predict co
 
 You do **not** pull to preview. `git fetch` + merge-tree is enough.
 
-## The Ecosystem Map (the brain)
-
-Both files embed a cross-app map (booking API → MIE/Employer, Core patient → MIE arrival, WPI → Reserve, Dayforce → Employer, booking-contract model → all). Override it per repo by adding `docs/ecosystem-map.md` — the skill reads that first if present.
-
-Two gates run every time:
-- **Gate 1** — a Contract file changed without a version bump → 🔴 blocking.
-- **Gate 2** — a shared surface touched → list which other apps to re-verify.
-
-## Requirements
-
-- `git` 2.38+ (for `git merge-tree --write-tree`; older git uses a documented fallback).
-- `gh` CLI for `<PR>` (number) mode.
 
 ## Files in this package
 
@@ -124,9 +96,4 @@ changes-analyze.md    → Cursor        (<repo>/.cursor/commands/changes-analyze
 README.md             → this file
 ```
 
-## Format source
 
-The conflict report format is built from git's own tooling — `git merge-tree --write-tree` output + git/Atlassian conflict-type vocabulary. No third-party skill dependency.
-=======
-# Changes-analyzer
->>>>>>> 2e5d9e65625be854f9c6bfad3e3243c90e97dea6
