@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # changes-analyze
 ## What it produces
 
