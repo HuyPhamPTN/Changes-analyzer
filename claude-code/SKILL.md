@@ -29,13 +29,18 @@ Run in the current repo (cwd). Identify the app from the git remote / folder nam
 `premium` · `reserve` · `employer` · `my-injuryex` (MIE) · `core`. Selects the right rows in the **Ecosystem Map** + **UI Map** below.
 
 ### 2. Resolve refs + diff
-- **PR number:** `gh pr view <PR> --json number,title,url,headRefName,baseRefName,author`
+- **PR number:** `gh pr view <PR> --json number,title,url,headRefName,baseRefName,author,state,createdAt,mergedAt`
   - bare form: `gh pr diff <PR>` (PR vs its base)
   - `compare with <X>`: resolve `headRefName` of `<PR>`, then `git fetch origin` and `git diff origin/<X>...<headRefName>`
 - **Branch/sha:** `git diff <target>...<source>` (three-dot = changes on source since divergence).
 - Always also capture:
   - `git diff --stat <base> <head>` (file list + churn)
   - For the largest / new files, read the actual added code (`git show <head>:<file> | head -40`). Never write a dossier from filenames alone.
+- **Timestamps (date + time, always with UTC offset).** Format every timestamp as `YYYY-MM-DD HH:mm (UTC±hh:mm)`, e.g. `2026-10-06 14:35 (UTC+07:00)`. Never write a date without a time.
+  - **Generated** (when this dossier was produced): `date "+%Y-%m-%d %H:%M (UTC%:z)"` (PowerShell: `Get-Date -Format "yyyy-MM-dd HH:mm '(UTC'zzz')'"`).
+  - **Source / target last commit:** `git log -1 --format=%cd --date=format:"%Y-%m-%d %H:%M (UTC%z)" <ref>` (insert the colon in the offset: `+0700` → `+07:00`).
+  - **Merge-base commit:** same command on `$(git merge-base <target> <source>)`.
+  - **PR merged at:** `mergedAt` from `gh pr view` (ISO UTC, e.g. `2026-10-06T07:35:12Z`) → convert to local time with offset. If `state` ≠ `MERGED` write `not merged yet`. Branch/sha mode with no PR → `n/a`.
 
 ### 2b. Detect branch conflicts (code.md core)
 Predict what will conflict when `<source>` merges into `<target>` — **without merging**:
@@ -63,7 +68,7 @@ docs/changes/<id>/business.md
 docs/changes/<id>/code.md
 docs/changes/<id>/ui-affected.md     # screen/route map + QA click-paths
 ```
-Append one row to `docs/CHANGES.md` (create if missing): `| <id> | <app> | <title> | <risk> | <date> | link |`.
+Append one row to `docs/CHANGES.md` (create if missing): `| <id> | <app> | <title> | <risk> | <generated YYYY-MM-DD HH:mm (UTC±hh:mm)> | <merged YYYY-MM-DD HH:mm (UTC±hh:mm) / not merged yet> | link |`.
 
 ### 6. Do not commit or push
 Default = write files only. Only with `--commit`: `git add docs/changes/<id> docs/CHANGES.md && git commit`. **Never `git push`.** Never touch app source.
@@ -112,7 +117,8 @@ If `docs/ecosystem-map.md` exists at repo/workspace root, read it first and pref
 # Change Dossier — Business
 
 **Change:** <PR/ref> · `<branch>` · <App>   **Compared against:** <base>
-**Date:** <YYYY-MM-DD> · **Author:** <author>
+**Generated:** <YYYY-MM-DD HH:mm (UTC±hh:mm)> · **Author:** <author>
+**Source last commit:** <YYYY-MM-DD HH:mm (UTC±hh:mm)> · **PR merged:** <YYYY-MM-DD HH:mm (UTC±hh:mm) / not merged yet / n/a>
 **Apps affected:** <list with role>   **Risk:** 🟢/🟡/🔴 <one-line why>
 **Booking contract changed:** Yes/No (<version bump?>)
 
@@ -142,7 +148,7 @@ If `docs/ecosystem-map.md` exists at repo/workspace root, read it first and pref
 ```markdown
 # Change Dossier — UI Affected
 
-**Change:** <PR/ref> · <App>
+**Change:** <PR/ref> · <App>   **Generated:** <YYYY-MM-DD HH:mm (UTC±hh:mm)>
 
 | Screen | Route / file | Changed? | What changed | QA click-path |
 |--------|--------------|----------|--------------|---------------|
@@ -160,7 +166,8 @@ Goal: what collides when `<source>` merges into `<target>`, at a level the dev t
 ```markdown
 # Change Dossier — Merge Conflict Report
 
-**Merge:** `<source>` → `<target>`   **App:** <App>   **Merge-base:** `<short-sha>`
+**Merge:** `<source>` → `<target>`   **App:** <App>   **Merge-base:** `<short-sha>` (<YYYY-MM-DD HH:mm (UTC±hh:mm)>)
+**Generated:** <YYYY-MM-DD HH:mm (UTC±hh:mm)>   **Source last commit:** <YYYY-MM-DD HH:mm (UTC±hh:mm)>   **Target last commit:** <YYYY-MM-DD HH:mm (UTC±hh:mm)>   **PR merged:** <YYYY-MM-DD HH:mm (UTC±hh:mm) / not merged yet / n/a>
 **Mergeable:** ✅ clean / ⚠️ <N> conflicts / ⏩ fast-forward (no divergence)
 **Detected by:** `git merge-tree --write-tree <target> <source>` (no merge performed)
 **Overall merge risk:** 🟢/🟡/🔴 <one line>
@@ -186,7 +193,7 @@ When fast-forward / no conflicts:
 ```markdown
 # Change Dossier — Merge Conflict Report
 
-**Merge:** `<source>` → `<target>`   **Mergeable:** ⏩ fast-forward, 0 conflicts
+**Merge:** `<source>` → `<target>`   **Mergeable:** ⏩ fast-forward, 0 conflicts   **Generated:** <YYYY-MM-DD HH:mm (UTC±hh:mm)>
 `<source>` is <N> behind / ahead; no divergent edits. Nothing to resolve — `git merge`/`git pull` applies cleanly.
 Incoming (heading level only): <bullet list of themes>.
 ```
@@ -198,4 +205,5 @@ Incoming (heading level only): <bullet list of themes>.
 - Never leave a merge state: if a dry `git merge` is used as fallback, always `git merge --abort` after.
 - No diagrams. Describe flow + cross-app impact in prose/tables inside the docs.
 - Read-only by default. Never push. `--commit` writes only the dossier files.
+- Every date is a timestamp: `YYYY-MM-DD HH:mm (UTC±hh:mm)`, taken from `date` / `git log` / `gh` output — never estimated. Missing value → `n/a`, not a guess.
 - Keep each doc tight; a dossier is a decision aid, not a spec.

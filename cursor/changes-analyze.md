@@ -21,9 +21,10 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 ## Procedure
 1. **Repo + app.** Run in cwd repo. Identify app from remote/folder: premium · reserve · employer · my-injuryex (MIE) · core. Selects Ecosystem Map + UI Map rows.
 2. **Resolve refs + diff.**
-   - PR: `gh pr view <PR> --json number,title,url,headRefName,baseRefName,author`. Bare: `gh pr diff <PR>`. `compare with <X>`: `git fetch origin && git diff origin/<X>...<headRefName>`.
+   - PR: `gh pr view <PR> --json number,title,url,headRefName,baseRefName,author,state,createdAt,mergedAt`. Bare: `gh pr diff <PR>`. `compare with <X>`: `git fetch origin && git diff origin/<X>...<headRefName>`.
    - Branch/sha: `git diff <target>...<source>`.
    - Always: `git diff --stat <base> <head>`, and `git show <head>:<file> | head -40` on big/new files. Never analyze from filenames alone.
+   - **Timestamps** — always date + time + offset: `YYYY-MM-DD HH:mm (UTC±hh:mm)` (e.g. `2026-10-06 14:35 (UTC+07:00)`). Generated: `date "+%Y-%m-%d %H:%M (UTC%:z)"` (PowerShell: `Get-Date -Format "yyyy-MM-dd HH:mm '(UTC'zzz')'"`). Source/target/merge-base commit: `git log -1 --format=%cd --date=format:"%Y-%m-%d %H:%M (UTC%z)" <ref>` (`+0700`→`+07:00`). PR merged: `mergedAt` from gh (UTC ISO → local + offset); not merged → `not merged yet`; no PR → `n/a`.
 2b. **Detect conflicts (code.md core).** Predict collisions when `<source>` merges `<target>`, no merge performed:
    - Preferred (git 2.38+): `git merge-tree --write-tree --name-only <target> <source>` → conflict list. Types: `CONFLICT (content)`, `(rename/delete)`, `(rename/rename)`, `(add/add)`, `(modify/delete)`, `(binary)`, `(submodule)`.
    - Fallback: `git merge-tree <merge-base> <target> <source>` scan for `<<<<<<<`, or dry `git merge --no-commit --no-ff <source>` then **always `git merge --abort`**.
@@ -33,7 +34,7 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 4. **Two gates.**
    - **Gate 1 (contract break):** contract file changed WITHOUT version bump → 🔴 blocking. Only imported → PASS (say so).
    - **Gate 2 (shared surface):** touches API routes / Core link / cross-app models / WPI / Dayforce → deep cross-app impact table in code.md. Else lightweight.
-5. **Emit** to `docs/changes/<id>/` (`<id>` = IE-#### from branch, else PR-<n>, else short sha): `business.md`, `code.md`, `ui-affected.md`. Append row to `docs/CHANGES.md`.
+5. **Emit** to `docs/changes/<id>/` (`<id>` = IE-#### from branch, else PR-<n>, else short sha): `business.md`, `code.md`, `ui-affected.md`. Append row to `docs/CHANGES.md`: `| <id> | <app> | <title> | <risk> | <generated timestamp> | <merged timestamp / not merged yet> | link |`.
 6. **No git side effects** by default. `--commit` = `git add docs/changes/<id> docs/CHANGES.md && git commit`. **Never push.** Never touch app source.
 
 ## Ecosystem Map (prefer `docs/ecosystem-map.md` if present)
@@ -54,9 +55,9 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 premium/reserve/employer `src/routes/**` (TanStack file routes, `.tsx` path ≈ URL, `_authenticated/`=signed-in) · my-injuryex `app/**` (Expo Router, path ≈ screen) · core = backend, usually no UI.
 
 ## Output contents
-- **business.md** — plain language, no code: What changed · Why · Who affected · **UI affected (screen|route|change|click-path)** · Workflow impact · Risk+rollback · QA checklist.
-- **ui-affected.md** — table: Screen | Route/file | new/updated/indirect | what changed | QA click-path. Plus logic-only-no-UI list, and screens to regression-test.
-- **code.md** — HIGH-LEVEL merge-conflict report (NOT diff restatement). Header: `<source>`→`<target>`, merge-base, mergeable (✅clean / ⚠️N conflicts / ⏩fast-forward), detected by `git merge-tree`, overall risk. Then: **Conflicts table** (File | Type | source intent | target intent | collision area | risk | resolution direction | owner) · **Clean-but-semantically-risky** list · **Contract/cross-app conflicts** (Gate 1 escalate if a Contract file conflicts; Gate 2 apps to re-verify) · **Suggested resolution plan** (ordered, high level). Clean/fast-forward → two lines + incoming themes, stop.
+- **business.md** — header: Generated · Author · Source last commit · PR merged (all timestamps). Plain language, no code: What changed · Why · Who affected · **UI affected (screen|route|change|click-path)** · Workflow impact · Risk+rollback · QA checklist.
+- **ui-affected.md** — header with Generated timestamp, then table: Screen | Route/file | new/updated/indirect | what changed | QA click-path. Plus logic-only-no-UI list, and screens to regression-test.
+- **code.md** — HIGH-LEVEL merge-conflict report (NOT diff restatement). Header: `<source>`→`<target>`, merge-base (+ its commit timestamp), Generated / source last commit / target last commit / PR merged timestamps, mergeable (✅clean / ⚠️N conflicts / ⏩fast-forward), detected by `git merge-tree`, overall risk. Then: **Conflicts table** (File | Type | source intent | target intent | collision area | risk | resolution direction | owner) · **Clean-but-semantically-risky** list · **Contract/cross-app conflicts** (Gate 1 escalate if a Contract file conflicts; Gate 2 apps to re-verify) · **Suggested resolution plan** (ordered, high level). Clean/fast-forward → two lines + incoming themes, stop.
 
 ## Rules
-Real analysis only (read diffs + grep components→routes + `git merge-tree`). business.md zero code identifiers; ui-affected.md screen names a QA recognizes. code.md = what collides on merge, conflict type, competing intent, resolution direction — not file/line churn (that's the PR). Never leave a merge state (dry-merge fallback → `git merge --abort`). No diagrams. Read-only default, never push, `--commit` writes only dossier files.
+Real analysis only (read diffs + grep components→routes + `git merge-tree`). business.md zero code identifiers; ui-affected.md screen names a QA recognizes. code.md = what collides on merge, conflict type, competing intent, resolution direction — not file/line churn (that's the PR). Never leave a merge state (dry-merge fallback → `git merge --abort`). No diagrams. Read-only default, never push, `--commit` writes only dossier files. Every date = `YYYY-MM-DD HH:mm (UTC±hh:mm)` from `date`/`git log`/`gh`, never estimated; missing → `n/a`.
