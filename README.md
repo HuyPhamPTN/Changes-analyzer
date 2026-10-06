@@ -2,7 +2,7 @@
 # changes-analyze
 ## What it produces
 
-Per run, into `docs/changes/<id>/` of the current repo:
+Per run, into `changes-analyzer-output/<dd-mm-yyyy hh-mm-ss> - <source> vs <target>/` at the root of the current repo (e.g. `06-10-2026 15-30-45 - feature-IE-1234 vs main`):
 
 | File | Audience | Content |
 |------|----------|---------|
@@ -10,9 +10,11 @@ Per run, into `docs/changes/<id>/` of the current repo:
 | `code.md` | Dev team | **High-level merge-conflict report** — what collides when the two branches merge, conflict type, competing intent, resolution direction. NOT a diff restatement (that's in the PR). |
 | `ui-affected.md` | QA / BA | Screen + route map with QA click-paths; regression-test list. |
 
-Plus one row appended to `docs/CHANGES.md` (living index).
+Plus one row appended to `changes-analyzer-output/CHANGES.md` (index of all runs).
 
-No diagrams. Read-only by default (never commits/pushes unless `--commit`).
+**Never pushed to git.** Each repo's `.gitignore` must list `changes-analyzer-output/`. The skill never edits `.gitignore`; if the folder isn't ignored it still writes the dossier but warns you to add that line.
+
+No diagrams. Never commits or pushes; never touches app source.
 
 ## Install — Claude Code
 
@@ -71,7 +73,6 @@ Then: open the Cursor **Agent** chat, type `/` → pick `changes-analyze` (or ty
 /changes-analyze <PR> compare with <PR2>       # two PRs
 /changes-analyze <branch> compare with main    # branch vs ref
 /changes-analyze <sha1> compare with <sha2>    # two commits/tags
-/changes-analyze <PR> --commit                 # also git-commit the dossier (never pushes)
 ```
 `<PR>` = number (uses `gh`). Branch/tag/sha used directly with `git`. Default compare target = `main`.
 

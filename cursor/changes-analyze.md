@@ -1,5 +1,5 @@
 ---
-description: Generate a cross-app Change Dossier for a PR or ref comparison in the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Produces business.md (plain-language change summary), code.md (high-level branch-conflict report — what collides on merge, not a diff restatement), ui-affected.md. Read-only unless --commit.
+description: Generate a cross-app Change Dossier for a PR or ref comparison in the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Produces business.md (plain-language change summary), code.md (high-level branch-conflict report — what collides on merge, not a diff restatement), ui-affected.md. Writes only to a git-ignored changes-analyzer-output/ folder (one timestamped subfolder per run); never commits or pushes.
 ---
 
 # /changes-analyze
@@ -14,7 +14,6 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 /changes-analyze <PR> compare with main        # PR head vs main
 /changes-analyze <PR> compare with <PR2>       # two PRs
 /changes-analyze <branch|sha> compare with <ref>
-/changes-analyze <PR> --commit                 # also git commit the dossier (never pushes)
 ```
 `<PR>` = number (uses `gh`). Branch/tag/sha used directly with `git`. Compare target defaults to `main`, or the PR's own base in bare form.
 
@@ -34,8 +33,20 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 4. **Two gates.**
    - **Gate 1 (contract break):** contract file changed WITHOUT version bump → 🔴 blocking. Only imported → PASS (say so).
    - **Gate 2 (shared surface):** touches API routes / Core link / cross-app models / WPI / Dayforce → deep cross-app impact table in code.md. Else lightweight.
-5. **Emit** to `docs/changes/<id>/` (`<id>` = IE-#### from branch, else PR-<n>, else short sha): `business.md`, `code.md`, `ui-affected.md`. Append row to `docs/CHANGES.md`: `| <id> | <app> | <title> | <risk> | <generated timestamp> | <merged timestamp / not merged yet> | link |`.
-6. **No git side effects** by default. `--commit` = `git add docs/changes/<id> docs/CHANGES.md && git commit`. **Never push.** Never touch app source.
+5. **Emit** to a git-ignored folder at the repo root (`git rev-parse --show-toplevel`):
+   ```
+   changes-analyzer-output/
+   ├── CHANGES.md          # index, one row per run
+   └── <dd-mm-yyyy hh-mm-ss> - <source> vs <target>/
+       ├── business.md
+       ├── code.md
+       └── ui-affected.md
+   ```
+   - **Git-ignore check:** the repo's `.gitignore` is expected to list `changes-analyzer-output/`. Never create or edit any `.gitignore`. If `git check-ignore -q "changes-analyzer-output/CHANGES.md"` fails, still write, but end with a warning to add `changes-analyzer-output/` to .gitignore before committing.
+   - **Folder name** e.g. `06-10-2026 15-30-45 - feature-IE-1234-booking-status vs main`. Timestamp = Generated time, local 24h with seconds: `date "+%d-%m-%Y %H-%M-%S"` (PowerShell `Get-Date -Format "dd-MM-yyyy HH-mm-ss"`); `-` replaces `/` and `:` (not allowed in folder names). Names = the two refs compared (PR head vs base/compare target; PR vs PR = both heads; sha/tag = short sha/tag), drop `origin/`, replace `/ \ : * ? " < > |` and whitespace with `-`, max 50 chars each. Exists already → append ` (2)`. Path has spaces → always quote it.
+   - `<id>` (IE-#### from branch, else PR-<n>, else short sha) is used in titles + index only.
+   - Append to `changes-analyzer-output/CHANGES.md` (create with header `| ID | App | Title | Risk | Generated | PR merged | Dossier |` if missing): `| <id> | <app> | <title> | <risk> | <generated> | <merged / not merged yet / n/a> | [<folder>](<<folder>/business.md>) |`. Re-runs add a new folder + row, never overwrite.
+6. **No git side effects.** Never `git add` / `commit` / `push` the dossier — the folder is git-ignored on purpose. Never touch app source. Only `git fetch` writes.
 
 ## Ecosystem Map (prefer `docs/ecosystem-map.md` if present)
 **Contract files (Gate 1 watch):** premium `src/models/treatment-booking-contract.ts`, `src/routes/api/v1/peme/bookings/**`, `src/routes/api/v1/**` · reserve LMS adapters (Clio/ActionStep/LEAP) + booking sync · employer Dayforce adapters + booking client · my-injuryex `services/premium/**`, `services/peme/**`, `services/booking/**` (consumers) · core canonical patient+booking schema.
@@ -60,4 +71,4 @@ premium/reserve/employer `src/routes/**` (TanStack file routes, `.tsx` path ≈ 
 - **code.md** — HIGH-LEVEL merge-conflict report (NOT diff restatement). Header: `<source>`→`<target>`, merge-base (+ its commit timestamp), Generated / source last commit / target last commit / PR merged timestamps, mergeable (✅clean / ⚠️N conflicts / ⏩fast-forward), detected by `git merge-tree`, overall risk. Then: **Conflicts table** (File | Type | source intent | target intent | collision area | risk | resolution direction | owner) · **Clean-but-semantically-risky** list · **Contract/cross-app conflicts** (Gate 1 escalate if a Contract file conflicts; Gate 2 apps to re-verify) · **Suggested resolution plan** (ordered, high level). Clean/fast-forward → two lines + incoming themes, stop.
 
 ## Rules
-Real analysis only (read diffs + grep components→routes + `git merge-tree`). business.md zero code identifiers; ui-affected.md screen names a QA recognizes. code.md = what collides on merge, conflict type, competing intent, resolution direction — not file/line churn (that's the PR). Never leave a merge state (dry-merge fallback → `git merge --abort`). No diagrams. Read-only default, never push, `--commit` writes only dossier files. Every date = `YYYY-MM-DD HH:mm (UTC±hh:mm)` from `date`/`git log`/`gh`, never estimated; missing → `n/a`.
+Real analysis only (read diffs + grep components→routes + `git merge-tree`). business.md zero code identifiers; ui-affected.md screen names a QA recognizes. code.md = what collides on merge, conflict type, competing intent, resolution direction — not file/line churn (that's the PR). Never leave a merge state (dry-merge fallback → `git merge --abort`). No diagrams. Output only in `changes-analyzer-output/` (git-ignored by the repo's `.gitignore`; warn if not); never add/commit/push it. Every date = `YYYY-MM-DD HH:mm (UTC±hh:mm)` from `date`/`git log`/`gh`, never estimated; missing → `n/a`.

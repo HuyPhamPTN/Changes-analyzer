@@ -1,6 +1,6 @@
 ---
 name: changes-analyze
-description: "Generate a cross-app Change Dossier for a PR or ref comparison in the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Use for /changes-analyze, 'analyze this PR', 'change dossier', 'what will conflict if I merge', or comparing a PR/branch against main or another PR. Produces business.md (BA/PO/QA plain-language change summary), code.md (high-level branch-conflict report for devs — what will collide on merge, not a diff restatement), and a UI-affected screen map. Read-only unless --commit."
+description: "Generate a cross-app Change Dossier for a PR or ref comparison in the InjuryEX ecosystem (Premium, Reserve, Employer, MyInjuryEX, Core). Use for /changes-analyze, 'analyze this PR', 'change dossier', 'what will conflict if I merge', or comparing a PR/branch against main or another PR. Produces business.md (BA/PO/QA plain-language change summary), code.md (high-level branch-conflict report for devs — what will collide on merge, not a diff restatement), and a UI-affected screen map. Writes only to a git-ignored changes-analyzer-output/ folder (one timestamped subfolder per run); never commits or pushes."
 ---
 
 # /changes-analyze
@@ -17,7 +17,6 @@ Turn a PR or ref-diff into a **Change Dossier**: a plain-language change summary
 /changes-analyze <PR> compare with <PR2>           # two PRs against each other
 /changes-analyze <branch> compare with main        # arbitrary branch vs ref
 /changes-analyze <sha1> compare with <sha2>        # two commits/tags
-/changes-analyze <PR> --commit                     # also git add+commit the dossier (never pushes)
 ```
 
 `<PR>` = a number (uses `gh`). A branch, tag, or sha is used directly with `git`. Compare target defaults to `main` when omitted, or to the PR's own base branch in bare `<PR>` form.
@@ -61,17 +60,27 @@ Output: screen name + route path + what changed there + a QA click-path.
 - **Gate 1 — contract break:** did the diff change any **Contract file** WITHOUT a version bump? Yes → 🔴 blocking risk. Contract only *imported* (not edited) → PASS, say so.
 - **Gate 2 — shared surface:** touches any **Shared surface** (API routes, Core link, cross-app models, WPI/Dayforce)? Yes → deep cross-app impact section in code.md (Cross-app consumers table). No → lightweight dossier, note the app is self-contained.
 
-### 5. Emit the dossier
-Write to `docs/changes/<id>/` in the current repo, `<id>` = `IE-####` from branch name if present, else `PR-<n>`, else short sha:
+### 5. Emit the dossier (git-ignored output folder)
+Write everything under `changes-analyzer-output/` at the repo root (`git rev-parse --show-toplevel`), one folder per run:
 ```
-docs/changes/<id>/business.md
-docs/changes/<id>/code.md
-docs/changes/<id>/ui-affected.md     # screen/route map + QA click-paths
+changes-analyzer-output/
+├── CHANGES.md                                  # index, one row per run
+└── <dd-mm-yyyy hh-mm-ss> - <source> vs <target>/
+    ├── business.md
+    ├── code.md
+    └── ui-affected.md
 ```
-Append one row to `docs/CHANGES.md` (create if missing): `| <id> | <app> | <title> | <risk> | <generated YYYY-MM-DD HH:mm (UTC±hh:mm)> | <merged YYYY-MM-DD HH:mm (UTC±hh:mm) / not merged yet> | link |`.
+- **Git-ignore check.** The repo's own `.gitignore` is expected to list `changes-analyzer-output/`. Never create or edit any `.gitignore`. Check with `git check-ignore -q "changes-analyzer-output/CHANGES.md"`; if it fails, still write the dossier but end the run with a clear warning: *"changes-analyzer-output/ is not git-ignored in this repo — add `changes-analyzer-output/` to .gitignore before committing."*
+- **Run folder name:** `<dd-mm-yyyy hh-mm-ss> - <source> vs <target>`, e.g. `06-10-2026 15-30-45 - feature-IE-1234-booking-status vs main`.
+  - Timestamp = the Generated time, local, 24h, with seconds: `date "+%d-%m-%Y %H-%M-%S"` (PowerShell: `Get-Date -Format "dd-MM-yyyy HH-mm-ss"`). `-` stands in for `/` and `:` because folder names can't contain them (`/` is a path separator, `:` is illegal on Windows).
+  - `<source>` / `<target>` = the two refs actually compared: PR mode → `headRefName` vs base branch (or the `compare with` target); PR vs PR → both head branches; sha/tag mode → 7-char short sha or tag. Drop any `origin/` prefix. Replace `/ \ : * ? " < > |` and runs of whitespace with `-`; cap each name at 50 chars.
+  - If that folder already exists (same second), append ` (2)`, ` (3)` …
+  - The path contains spaces — always quote it in shell commands.
+- `<id>` (`IE-####` from branch name if present, else `PR-<n>`, else short sha) is still used in the doc titles and the index, not in the folder name.
+- Append one row to `changes-analyzer-output/CHANGES.md` (if missing, create it with header `| ID | App | Title | Risk | Generated | PR merged | Dossier |` and the separator row): `| <id> | <app> | <title> | <risk> | <generated YYYY-MM-DD HH:mm (UTC±hh:mm)> | <merged YYYY-MM-DD HH:mm (UTC±hh:mm) / not merged yet / n/a> | [<folder name>](<<folder name>/business.md>) |` (angle brackets keep the link working with spaces). Every run gets its own folder, so re-runs add a row and never overwrite an older dossier.
 
-### 6. Do not commit or push
-Default = write files only. Only with `--commit`: `git add docs/changes/<id> docs/CHANGES.md && git commit`. **Never `git push`.** Never touch app source.
+### 6. No git side effects
+Never `git add`, `git commit` or `git push` the dossier — the output folder is git-ignored on purpose. Never touch app source or any `.gitignore`. The only git command that writes anything is `git fetch`.
 
 ---
 
@@ -204,6 +213,6 @@ Incoming (heading level only): <bullet list of themes>.
 - code.md = high-level MERGE-CONFLICT report from `git merge-tree` — what collides, conflict type, competing intent, resolution direction. NOT a diff/file-churn restatement (that's in the PR). Clean merge → two lines, stop.
 - Never leave a merge state: if a dry `git merge` is used as fallback, always `git merge --abort` after.
 - No diagrams. Describe flow + cross-app impact in prose/tables inside the docs.
-- Read-only by default. Never push. `--commit` writes only the dossier files.
+- Output goes only to `changes-analyzer-output/<dd-mm-yyyy hh-mm-ss> - <source> vs <target>/`, kept out of git by the repo's `.gitignore` (warn if it isn't listed). Never git add / commit / push it. Never touch app source.
 - Every date is a timestamp: `YYYY-MM-DD HH:mm (UTC±hh:mm)`, taken from `date` / `git log` / `gh` output — never estimated. Missing value → `n/a`, not a guess.
 - Keep each doc tight; a dossier is a decision aid, not a spec.
